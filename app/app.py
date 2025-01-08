@@ -36,15 +36,18 @@ def play_audio_file(file_path):
         pygame.time.Clock().tick(10)
 
 def is_goodbye(text):
-    goodbye_patterns = ['goodbye', 'bye', 'quit', 'exit', 'stop']
+    goodbye_patterns = ['good bye', 'bye', 'quit', 'exit', 'stop']
     return any(pattern in text.lower() for pattern in goodbye_patterns)
 
 def get_model(llm_engine, llm_model_name=None):
     try:
-        if llm_engine == "Gemini" and os.getenv('GEMINI_API_KEY'):
+        if llm_engine == "Gemini":
+            api_key = st.session_state.user_api_key or os.getenv('GEMINI_API_KEY')
+            if not api_key:
+                raise ValueError("Gemini API Key is not set.")
             return ChatGoogleGenerativeAI(
                 model="gemini-pro",
-                google_api_key=os.getenv('GEMINI_API_KEY'),
+                google_api_key=api_key,
                 temperature=0.1
             )
         elif llm_engine == "Local Ollama" and llm_model_name:
@@ -54,7 +57,7 @@ def get_model(llm_engine, llm_model_name=None):
     except Exception as e:
         logger.error(f"Model initialization failed: {e}")
         raise
-    
+
 class VoiceAssistant:
     def __init__(self):
         self.asr = pipeline("automatic-speech-recognition", model="openai/whisper-base")
@@ -84,6 +87,11 @@ class VoiceAssistant:
             logger.info("Response audio generated.")
             return temp_audio.name
 
+def restart_app():
+    for key in list(st.session_state.keys()):
+        del st.session_state[key]
+    st.rerun()
+
 def main():
     st.set_page_config(page_title="Voice Assistant", layout="wide")
     st.title("Voice Assistant")
@@ -94,17 +102,23 @@ def main():
         st.session_state.assistant = VoiceAssistant()
     if "active" not in st.session_state:
         st.session_state.active = False
+    if "user_api_key" not in st.session_state:
+        st.session_state.user_api_key = ""
 
     status = st.empty()
 
     st.sidebar.header("Settings")
     llm_engine = st.sidebar.radio("Select LLM Type", options=['Gemini', 'Local Ollama'])
-    llm_model_name = None if llm_engine == 'Gemini' else st.sidebar.text_input("Ollama Model Name", value="llama2")
+    llm_model_name = None if llm_engine == 'Gemini' else st.sidebar.text_input("Ollama Model Name", value="llama3.2:latest")
 
     if llm_engine == 'Gemini':
-        api_key = st.sidebar.text_input("Google Gemini API Key", type="password", value=os.getenv('GEMINI_API_KEY', ''))
-        if api_key:
-            os.environ['GEMINI_API_KEY'] = api_key
+        user_api_key = st.sidebar.text_input("Google Gemini API Key", type="password")
+        st.session_state.user_api_key = user_api_key.strip()
+
+    recording_duration = st.sidebar.slider("Recording Duration (seconds)", min_value=1, max_value=10, value=5)
+
+    if st.sidebar.button("Restart App"):
+        restart_app()
 
     chat_container = st.container()
     with chat_container:
@@ -118,9 +132,9 @@ def main():
         try:
             while st.session_state.active:
                 status.info("Listening...")
-                audio_data = st.session_state.assistant.record_audio()
+                audio_data = st.session_state.assistant.record_audio(duration=recording_duration)
                 user_text = st.session_state.assistant.process_audio(audio_data)
-                
+
                 if is_goodbye(user_text):
                     final_response = "Goodbye! Have a great day!"
                     logger.info("User said goodbye. Ending conversation.")

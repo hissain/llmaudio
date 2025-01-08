@@ -1,0 +1,10 @@
+streamlit==1.41.1
+numpy==1.26.4
+transformers==4.39.3
+sounddevice==0.5.1
+soundfile==0.13.0
+gTTS==2.5.4
+python-dotenv==1.0.1
+langchain-google-genai==2.0.7
+langchain-ollama==0.2.2
+pygame==2.6.1
