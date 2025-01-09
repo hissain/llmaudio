@@ -1,7 +1,7 @@
 streamlit==1.41.1
 numpy==1.26.4
 transformers==4.39.3
-sounddevice==0.5.1
+sounddevice
 soundfile==0.13.0
 gTTS==2.5.4
 python-dotenv==1.0.1
